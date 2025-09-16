@@ -1,0 +1,19 @@
+[package]  
+name = "script_tn10"  
+version = "0.1.0"  
+edition = "2021"  
+  
+[dependencies]  
+kaspa-addresses.workspace = true  
+kaspa-consensus-core.workspace = true  
+kaspa-consensus-client.workspace = true  
+kaspa-core.workspace = true  
+kaspa-grpc-client.workspace = true  
+kaspa-rpc-core.workspace = true  
+kaspa-txscript.workspace = true  
+secp256k1 = { workspace = true, features = ["global-context", "rand-std"] }  
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread"] }  
+log.workspace = true
+rayon = "1.10"
+futures = "0.3"
+env_logger = "0.11"
