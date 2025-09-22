@@ -1,204 +1,273 @@
-# Tx\_gen - Simple Transaction Generator for rusty-kaspa
+# Kaspa Transaction Generator (Improved)
+
+A high-performance transaction generator for the Kaspa blockchain, designed for testing network throughput and stress testing. This improved version features modular architecture, secure configuration management, and comprehensive error handling.
 
-A transaction generator built for easy use and quick testing.
-It runs inside the [`rusty-kaspa`](https://github.com/kaspanet/rusty-kaspa) workspace and talks to Kaspa over gRPC.
+## Features
 
----
+- **Secure Configuration**: No hardcoded private keys - uses environment variables, config files, or CLI arguments
+- **Modular Architecture**: Clean separation of concerns with dedicated modules
+- **Advanced Error Handling**: Comprehensive error types with detailed messages
+- **Flexible Configuration**: TOML-based config with CLI overrides
+- **Production-Ready Logging**: Structured logging with configurable levels
+- **High Performance**: Parallel transaction building with async submission
+- **Network Safety**: Built-in safety caps and network verification
 
-## What this script does
+## Quick Start
 
-1. **UTXO Analysis and Splitting**
+### Prerequisites
 
-   * Reads your address UTXOs.
-   * If you have fewer than `TARGET_UTXO_COUNT`, it uses your largest UTXO to create many small UTXOs in batches of `OUTPUTS_PER_TRANSACTION`.
-   * This prepares a pool of spendable UTXOs.
+- Rust 1.70 or later
+- Git
+- A Kaspa wallet with funds (for mainnet) or test funds (for testnet)
+
+### Installation
 
-2. **High-rate Transaction Sending**
+1. **Clone the repository**
+```bash
+git clone https://github.com/Zorglub4242/A-Simple-Transaction-Generator-for-Kaspa.git
+cd A-Simple-Transaction-Generator-for-Kaspa
+```
 
-   * Sends 1-input 1-output self-payments at a controlled target TPS.
-   * Paces with a short tick interval for smooth throughput, refreshes UTXOs, and keeps a large async inflight queue to avoid stalls.
-   * Tracks per-second TPS and a rolling 10-second average.
+2. **Run the setup script**
 
-The script self-checks that your address prefix matches the network, and that the node you connected to is the network you selected.
+**Linux/Mac:**
+```bash
+chmod +x setup.sh
+./setup.sh
+```
 
----
+**Windows:**
+```powershell
+.\setup.ps1
+```
 
-## Getting a private key
+3. **Configure your private key**
+```bash
+cp .env.example .env
+# Edit .env and set your PRIVATE_KEY_HEX
+```
 
-You have a few straightforward options. Do **one** of the following:
+4. **Build the project**
 
-* **Generator repo**: Use the community tool
-  [https://github.com/deepakdhaka-1/Kaspa-Wallet-Generate](https://github.com/deepakdhaka-1/Kaspa-Wallet-Generate)
-  Follow its instructions to get a 24-word seed and private key.
+**Linux/Mac:**
+```bash
+./build.sh
+```
 
-* **Verify the seed**: It is advised to load the same 24-word seed in **kaspa-NG** web wallet first, make sure the address is valid and usable, then use a **public address** from kaspa-NG to fund it.
-  After that, take only the **private key** from the generator and paste it into this script.
+**Windows:**
+```powershell
+.\build.ps1
+```
 
-* **K social (testnet key)**: You can also create a testnet account on “K - a decentralized twitter on kaspa” and take the private key from there:
-  [https://ksocialnetwork.pages.dev/watching](https://ksocialnetwork.pages.dev/watching)
+## Configuration
 
-> Put the private key hex into `PRIVATE_KEY_HEX` in `main.rs`. 
+### Environment Variables (.env)
 
----
+Create a `.env` file from the example:
+```bash
+cp .env.example .env
+```
 
-## Networks
+Required variable:
+- `PRIVATE_KEY_HEX`: Your 64-character hexadecimal private key
 
-* **Default**: mainnet
-* **Testnet-10**: pass `--net tn10` or `--net testnet10`
+### Configuration File (config.toml)
 
-The script uses these default gRPC endpoints:
+Optionally create a custom configuration:
+```bash
+cp config.example.toml config.toml
+```
+
+Key settings:
+- `network.network`: "mainnet" or "testnet10"
+- `spam.target_tps`: Target transactions per second
+- `spam.unleashed`: Remove 100 TPS safety cap (use carefully!)
+- `utxo.target_utxo_count`: Number of UTXOs to maintain
 
-* Mainnet: `grpc://n-mainnet.kaspa.ws:16110`
-* Testnet-10: `grpc://n-testnet-10.kaspa.ws:16210`
+### Command Line Options
 
-Your address prefix must match the network:
+```bash
+Tx_gen [OPTIONS]
 
-* `kaspa:` for mainnet
-* `kaspatest:` for testnet
+Options:
+  -n, --network <NETWORK>      Network to use [default: testnet10]
+  -k, --private-key <KEY>      Private key (overrides env var)
+  -r, --rpc-endpoint <URL>     RPC endpoint (overrides config)
+  -t, --target-tps <TPS>       Target transactions per second
+  -d, --duration <SECONDS>     Duration in seconds (0 = forever)
+  -l, --log-level <LEVEL>      Log level [default: info]
+  -c, --config <FILE>          Config file path
+  -h, --help                    Print help
+  -V, --version                 Print version
+```
+
+## Usage Examples
 
-If they do not match, the script will stop with a clear error.
+### Basic Usage (Testnet)
 
----
+```bash
+cd rusty-kaspa
+cargo run --release --bin Tx_gen
+```
+
+### With CLI Options
+
+```bash
+cargo run --release --bin Tx_gen -- \
+  --network testnet10 \
+  --target-tps 100 \
+  --duration 3600 \
+  --log-level debug
+```
+
+### Using Environment Variable
 
-## Quick start
+```bash
+PRIVATE_KEY_HEX=your_key_here cargo run --release --bin Tx_gen
+```
 
-1. **Clone rusty-kaspa**
-   Follow the build instructions in the repo:
-   [https://github.com/kaspanet/rusty-kaspa](https://github.com/kaspanet/rusty-kaspa)
+### Production Mode (Mainnet)
+
+```bash
+cargo run --release --bin Tx_gen -- \
+  --network mainnet \
+  --config production.toml \
+  --log-level warn
+```
 
-2. **Add this tool as a workspace member**
+## How It Works
+
+### Phase 1: UTXO Preparation
+- Analyzes your wallet's UTXOs
+- If needed, splits large UTXOs into smaller ones
+- Creates a pool of spendable UTXOs for high-rate transactions
 
-   * Create a new folder at the root of the workspace named **`Tx_gen`**.
+### Phase 2: Transaction Generation
+- Sends self-payment transactions at the configured TPS rate
+- Uses parallel processing for transaction creation
+- Implements async submission with connection pooling
+- Monitors performance with rolling averages
+
+## Getting a Private Key
 
-   * Inside `Tx_gen`, paste `src` with `main.rs` in it.
+### Option 1: Kaspa Wallet Generator
+Use the community tool: [Kaspa Wallet Generator](https://github.com/deepakdhaka-1/Kaspa-Wallet-Generate)
 
-   * In the root `Cargo.toml` of `rusty-kaspa`, add `"Tx_gen"` to the `[workspace] members` list.
-     Example:
+### Option 2: From Existing Wallet
+Export your private key from a compatible Kaspa wallet (ensure you understand the security implications)
 
-     ```toml
-     [workspace]
-     members = [
-       # existing members...
-       "Tx_gen"
-     ]
-     ```
+### Option 3: For Testnet
+Create a testnet account on [K Social Network](https://ksocialnetwork.pages.dev/watching)
 
-   > Do not change anything else in rusty-kaspa. Just follow its build guide.
+**Security Warning**: Never share or commit your private key!
 
-3. **Insert your private key**
+## Project Structure
 
-   * Open `Tx_gen/src/main.rs`
-   * Set:
+```
+├── src/
+│   ├── main.rs         # Entry point and orchestration
+│   ├── config.rs       # Configuration management
+│   ├── error.rs        # Error types and handling
+│   ├── network.rs      # Network connection and verification
+│   ├── transaction.rs  # Transaction building and signing
+│   ├── utxo.rs        # UTXO management
+│   └── spam.rs        # Transaction spam loop
+├── .env.example       # Example environment variables
+├── config.example.toml # Example configuration
+├── setup.sh/ps1       # Setup scripts
+└── build.sh/ps1       # Build scripts
+```
 
-     ```rust
-     const PRIVATE_KEY_HEX: &str = "<your_private_key_hex>";
-     ```
+## Advanced Configuration
 
-5. **Run on testnet-10**
+### Performance Tuning
 
-   ```bash
-   cargo run --release --bin Tx_gen -- --net tn10
-   ```
+```toml
+[spam]
+target_tps = 200           # Transactions per second
+unleashed = true           # Remove safety cap
+millis_per_tick = 10       # Pacing granularity
 
-6. **Run on mainnet** (only if you know what you are doing)
+[advanced]
+client_pool_size = 16      # gRPC connections
+max_inflight = 50000       # Max concurrent submits
+```
 
-   ```bash
-   cargo run --release --bin Tx_gen
-   ```
+### Fee Configuration
 
----
+```toml
+[fees]
+base_fee_rate = 1          # For spam transactions
+splitting_fee_rate = 10    # For UTXO splitting
+```
 
-## How to fund and sanity-check
+### UTXO Management
 
-1. Generate a seed and private key using the generator repo linked above.
-2. Load that seed in kaspa-NG web wallet to confirm you can see the expected address.
-3. Copy a **public address** from kaspa-NG and send test coins to it (for testnet, use faucets as available).
-4. Paste only the **private key hex** into `PRIVATE_KEY_HEX` and run the script on the matching network.
+```toml
+[utxo]
+target_utxo_count = 200    # More UTXOs = higher sustainable TPS
+amount_per_utxo = 150000000 # 1.5 KAS per UTXO
+outputs_per_transaction = 20 # Splitting efficiency
+```
 
----
+## Troubleshooting
 
-## Tuning knobs
+### "Address prefix does not match network"
+- Ensure your address matches the selected network
+- Mainnet addresses start with `kaspa:`
+- Testnet addresses start with `kaspatest:`
 
-These are the top constants in the script, with plain-English descriptions. Adjust before building.
+### "Insufficient funds"
+- You need at least 10 KAS in a single UTXO for splitting
+- Check your balance and consolidate if needed
 
-| Constant                  |    Type | Meaning                                                                                                                              |
-| ------------------------- | ------: | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `PRIVATE_KEY_HEX`         |  `&str` | Your hex private key. Required. Do not commit it.                                                                                    |
-| `TARGET_UTXO_COUNT`       | `usize` | Target number of small UTXOs to prepare. If you already have at least this count, the split phase is skipped.                        |
-| `AMOUNT_PER_UTXO`         |   `u64` | Value of each split output in sompi. `100_000_000` sompi = 1 KAS. Example uses `150_000_000` sompi = 1.5 KAS.                        |
-| `OUTPUTS_PER_TRANSACTION` | `usize` | How many split outputs per splitting transaction. The last tx in the split phase may use fewer to hit the exact target.              |
-| `TRANSACTIONS_COUNT`      | `usize` | Derived from `TARGET_UTXO_COUNT` and `OUTPUTS_PER_TRANSACTION`. Usually no need to touch.                                            |
-| `SPAM_DURATION_SECONDS`   |   `u64` | For the send loop. Set to `0` to run indefinitely. Otherwise stops after N seconds.                                                  |
-| `TARGET_TPS`              |   `u64` | Requested transactions per second for the send loop. Actual TPS depends on UTXO availability and network acceptance.                 |
-| `UNLEASHED`               |  `bool` | Safety cap switch. If `false`, caps at 100 TPS even if `TARGET_TPS` is higher. Set to `true` only after you have verified stability. |
-| `MILLIS_PER_TICK`         |   `u64` | Pacing tick in milliseconds. Lower values give smoother TPS control. Default `10` ms.                                                |
-| `BASE_FEE_RATE`           |   `u64` | Base fee rate (sompi per gram) for the 1-in 1-out spam txs. Combined with `estimated_mass` to compute fee.                           |
-| `CLIENT_POOL_SIZE`        | `usize` | Number of gRPC clients in the pool for parallel submits.                                                                             |
-| `UTXO_REFRESH_SECS`       |   `u64` | How often to refresh UTXOs from the node. Also refreshes when the local pool grows low.                                              |
-| `MIN_CHANGE_SOMPI`        |   `u64` | Minimum change value to keep when splitting or sending. Prevents dust outputs.                                                       |
-| `MAX_PENDING_AGE_SECS`    |   `u64` | Old pending reservations are pruned after this many seconds to avoid starvation.                                                     |
+### Build Errors
+- Ensure Rust is up to date: `rustup update`
+- Clean and rebuild: `cargo clean && cargo build --release`
 
-Fee helpers:
+### Connection Issues
+- Check your internet connection
+- Try alternative RPC endpoints
+- Verify firewall settings
 
-* `estimated_mass(...)` returns a constant `1700` as a simple stand-in.
-* `required_fee_base(...)` uses `BASE_FEE_RATE * estimated_mass(...)`.
-* `required_fee_splitting(...)` uses a fixed `FEE_RATE = 10` for split transactions.
+## Safety & Best Practices
 
-You can raise fee rates if your node rejects for size or fee reasons.
+1. **Start with Testnet**: Always test on testnet first
+2. **Use Safety Caps**: Keep `unleashed = false` until you're confident
+3. **Monitor Resources**: Watch CPU, memory, and network usage
+4. **Gradual Increases**: Start with low TPS and increase gradually
+5. **Secure Keys**: Never commit private keys to version control
 
----
+## Contributing
 
-## Typical flow in detail
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-1. **Connect**
-   A small pool of gRPC clients is created for parallelism. The script fetches node info and checks that:
+## License
 
-   * Your address prefix matches the selected network.
-   * The node identifies as the expected network.
-
-2. **Analyze UTXOs**
-   It pulls confirmed, spendable UTXOs for your address, applying a simple maturity rule:
-
-   * Non-coinbase: needs 10 confirmations
-   * Coinbase: needs `coinbase_maturity` (default 100)
-
-3. **Split if needed**
-   If you have fewer than `TARGET_UTXO_COUNT`, it:
-
-   * Uses your largest UTXO.
-   * Creates `OUTPUTS_PER_TRANSACTION` outputs of equal value `AMOUNT_PER_UTXO`.
-   * Leaves change only if it is at least `MIN_CHANGE_SOMPI`.
-   * Repeats until you reach the target or funds run out.
-   * Brief sleeps between submits to be nice.
-
-4. **Send loop**
-
-   * Computes a fractional target per tick based on `TARGET_TPS` and `MILLIS_PER_TICK`.
-   * Refreshes UTXOs regularly and when low.
-   * Builds 1-in 1-out signed transactions in parallel.
-   * Maintains a large async inflight queue with round-robin client selection.
-   * Prints per-second TPS and a rolling 10-second average.
-
----
-
-
-## Tips and safety
-
-* Prefer **testnet-10** when trying high TPS or weird settings.
-* Fund the address before running. The split phase needs enough balance to create your target number of UTXOs and pay fees.
-* If you see “Address prefix does not match selected network” or “Connected node does not look like …”, fix either the network flag or the address you are using.
-* If the node rejects for mass or fee reasons, raise fee rates or reduce `OUTPUTS_PER_TRANSACTION`.
-* The UTXO splitting phase and the transaction generation phase may overlap. once all UTXO splitting transactions are confirmed the script will run at the set speed.
-
----
+MIT License - see LICENSE file for details
 
 ## Credits
 
-* Based on **Rothschild**.
-* Built on the `rusty-kaspa` stack.
+- Based on the original Rothschild transaction generator
+- Built on the [rusty-kaspa](https://github.com/kaspanet/rusty-kaspa) framework
+- Improved version by the community
+
+## Disclaimer
+
+This tool is for testing and educational purposes. Use responsibly and be aware of network impact when running at high TPS rates. The authors are not responsible for any misuse or damages caused by this software.
+
+## Support
+
+For issues, questions, or suggestions:
+- Open an issue on [GitHub](https://github.com/Zorglub4242/A-Simple-Transaction-Generator-for-Kaspa/issues)
+- Join the Kaspa Discord community
 
 ---
 
-
-
-
+**Version**: 0.2.0
+**Last Updated**: 2024

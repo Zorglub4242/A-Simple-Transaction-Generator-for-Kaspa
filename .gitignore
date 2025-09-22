@@ -1,0 +1,59 @@
+# Rust build artifacts
+/target/
+/Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# rusty-kaspa directory (cloned separately)
+/rusty-kaspa/
+
+# Environment and secrets
+.env
+*.env
+.env.*
+!.env.example
+
+# Private keys and sensitive data
+*.key
+*.pem
+*.p12
+*.pfx
+private_key.txt
+secret_key.txt
+
+# Configuration files with secrets
+config.toml
+!config.example.toml
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Test output
+test_output/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# Build output
+/build/
+/dist/
+/out/
+# Test files
+.env
+config.toml
+test_address.py

@@ -1,0 +1,75 @@
+# Kaspa Transaction Generator Configuration
+# Copy this file to config.toml and customize as needed
+
+[network]
+# Network to use: "mainnet" or "testnet10"
+network = "testnet10"
+
+# Custom RPC endpoint (optional, uses defaults if not specified)
+# rpc_endpoint = "grpc://localhost:16210"
+
+[utxo]
+# Target number of UTXOs to maintain
+target_utxo_count = 100
+
+# Amount per UTXO in sompi (1 KAS = 100,000,000 sompi)
+amount_per_utxo = 150_000_000  # 1.5 KAS
+
+# Number of outputs per splitting transaction
+outputs_per_transaction = 10
+
+# Minimum change value in sompi
+min_change_sompi = 1_000_000  # 0.01 KAS
+
+# UTXO refresh interval in seconds
+refresh_interval_secs = 1
+
+[spam]
+# Target transactions per second
+target_tps = 50
+
+# Duration to run the spam loop (0 = run forever)
+duration_seconds = 86_400  # 24 hours
+
+# Enable unleashed mode (allows TPS > 100)
+# WARNING: Only enable after testing at lower rates
+unleashed = false
+
+# Pacing tick interval in milliseconds
+millis_per_tick = 10
+
+[fees]
+# Base fee rate in sompi per gram (for spam transactions)
+base_fee_rate = 1
+
+# Splitting fee rate in sompi per gram
+splitting_fee_rate = 10
+
+[advanced]
+# Number of gRPC client connections
+client_pool_size = 8
+
+# Maximum age for pending transactions before pruning (seconds)
+max_pending_age_secs = 3600
+
+# Maximum number of in-flight transactions
+max_inflight = 20_000
+
+# Coinbase maturity (blocks)
+coinbase_maturity = 100
+
+# Non-coinbase confirmation requirement (blocks)
+confirmation_depth = 10
+
+[logging]
+# Log level: "error", "warn", "info", "debug", "trace"
+level = "info"
+
+# Log to file (optional)
+# log_file = "tx_gen.log"
+
+# Enable colored output
+colored = true
+
+# Show timestamps
+timestamps = true
