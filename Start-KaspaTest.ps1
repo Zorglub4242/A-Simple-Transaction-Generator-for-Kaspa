@@ -565,29 +565,60 @@ Write-Host "Checking if Kaspad is synced..." -ForegroundColor Cyan
 Write-Host "You can monitor kaspad logs with: docker logs -f kaspad-$network" -ForegroundColor Gray
 
 $syncCheckAttempts = 0
-$maxSyncWaitMinutes = 5
+$maxIdleMinutes = 3  # Maximum time without any activity before asking user
+$lastActivityTime = Get-Date
+$lastLogContent = ""
 $isSynced = $false
-$lastStatus = ""
+$utxoSyncPattern = "Received .* UTXO set chunks"
 
 Write-Host ""
 Write-Host "Waiting for kaspad to sync" -NoNewline -ForegroundColor Yellow
 
-while (-not $isSynced -and $syncCheckAttempts -lt ($maxSyncWaitMinutes * 6)) {
+while (-not $isSynced) {
     Start-Sleep -Seconds 10
     $syncCheckAttempts++
 
     # Show progress dots instead of repeating messages
     Write-Host "." -NoNewline -ForegroundColor Yellow
 
-    # Check kaspad logs for accepted blocks
+    # Check kaspad logs for activity
     $recentLogs = docker logs --tail=100 kaspad-$network 2>$null
 
-    if ($recentLogs -match "Accepted block") {
+    # Check if logs have changed (indicating activity)
+    if ($recentLogs -ne $lastLogContent) {
+        $lastActivityTime = Get-Date
+        $lastLogContent = $recentLogs
+    }
+
+    # Calculate time since last activity
+    $timeSinceActivity = (Get-Date) - $lastActivityTime
+    $minutesSinceActivity = [math]::Round($timeSinceActivity.TotalMinutes, 1)
+
+    # Check for different sync states
+    if ($recentLogs -match $utxoSyncPattern) {
+        # UTXO sync in progress - this is active syncing!
+        if ($syncCheckAttempts % 3 -eq 0) {
+            $utxoMatch = [regex]::Match($recentLogs, "Received (\d+) UTXO set chunks so far, totaling in (\d+) UTXOs")
+            if ($utxoMatch.Success) {
+                $chunks = $utxoMatch.Groups[1].Value
+                $utxos = $utxoMatch.Groups[2].Value
+                $minutes = [math]::Round($syncCheckAttempts * 10 / 60, 1)
+                Write-Host "" # New line after dots
+                Write-Host "Syncing UTXO set: $chunks chunks, $utxos UTXOs [$minutes min elapsed]" -ForegroundColor Cyan
+                Write-Host "Still syncing" -NoNewline -ForegroundColor Yellow
+            }
+        }
+    } elseif ($recentLogs -match "IBD completed") {
+        # IBD (Initial Block Download) completed
+        Write-Host "" # New line after dots
+        Write-Host "[SYNCED] Initial block download completed!" -ForegroundColor Green
+        $isSynced = $true
+    } elseif ($recentLogs -match "Accepted block") {
         # Found accepted blocks - kaspad is syncing/synced
         $blockCount = ([regex]::Matches($recentLogs, "Accepted block")).Count
 
         # Check if sync rate has slowed down (indicating we're near the tip)
-        if ($blockCount -le 10) {
+        if ($blockCount -le 5 -and $minutesSinceActivity -lt 1) {
             Write-Host "" # New line after dots
             Write-Host "[SYNCED] Kaspad is synced (at chain tip)" -ForegroundColor Green
             $isSynced = $true
@@ -596,8 +627,8 @@ while (-not $isSynced -and $syncCheckAttempts -lt ($maxSyncWaitMinutes * 6)) {
             if ($syncCheckAttempts % 3 -eq 0) {
                 $minutes = [math]::Round($syncCheckAttempts * 10 / 60, 1)
                 Write-Host "" # New line after dots
-                Write-Host "Kaspad is syncing: $blockCount blocks in recent logs [$minutes min elapsed]" -ForegroundColor Cyan
-                Write-Host "Waiting for sync to complete" -NoNewline -ForegroundColor Yellow
+                Write-Host "Syncing blocks: $blockCount recent blocks [$minutes min elapsed]" -ForegroundColor Cyan
+                Write-Host "Still syncing" -NoNewline -ForegroundColor Yellow
             }
         }
     } else {
@@ -613,6 +644,7 @@ while (-not $isSynced -and $syncCheckAttempts -lt ($maxSyncWaitMinutes * 6)) {
             if ($startKaspad -eq "y") {
                 docker-compose up -d kaspad
                 Write-Host "Restarted kaspad, waiting" -NoNewline -ForegroundColor Yellow
+                $lastActivityTime = Get-Date  # Reset activity timer
             } else {
                 exit
             }
@@ -623,29 +655,39 @@ while (-not $isSynced -and $syncCheckAttempts -lt ($maxSyncWaitMinutes * 6)) {
             Write-Host "Kaspad is starting up [$minutes min elapsed]" -ForegroundColor Gray
 
             # Show last few lines of kaspad log to see what's happening
-            $lastLogLines = docker logs --tail=3 kaspad-$network 2>$null
-            if ($lastLogLines) {
-                Write-Host "Last log: $($lastLogLines -split "`n" | Select-Object -Last 1)" -ForegroundColor DarkGray
+            $lastLogLine = $recentLogs -split "`n" | Where-Object { $_ -match "\[INFO\]|\[WARN\]|\[ERROR\]" } | Select-Object -Last 1
+            if ($lastLogLine) {
+                # Truncate long lines for display
+                if ($lastLogLine.Length -gt 100) {
+                    $lastLogLine = $lastLogLine.Substring(0, 97) + "..."
+                }
+                Write-Host "Last activity: $lastLogLine" -ForegroundColor DarkGray
             }
             Write-Host "Waiting" -NoNewline -ForegroundColor Yellow
+        }
+    }
+
+    # Check for timeout only if there's been no activity
+    if ($minutesSinceActivity -gt $maxIdleMinutes) {
+        Write-Host "" # New line
+        Write-Host ""
+        Write-Host "[WARNING] No new activity in kaspad logs for $minutesSinceActivity minutes." -ForegroundColor Yellow
+        Write-Host "Last known status: Sync might be stalled or completed." -ForegroundColor Yellow
+        Write-Host "You can check the full status with: docker logs --tail=50 kaspad-$network" -ForegroundColor Cyan
+        Write-Host ""
+
+        $continue = Read-Host "Continue anyway? [y/N]"
+        if ($continue -eq "y") {
+            Write-Host "Continuing with potentially unsynced node..." -ForegroundColor Yellow
+            break
+        } else {
+            Write-Host "Waiting for more activity. Press Ctrl+C to exit." -ForegroundColor Cyan
+            $lastActivityTime = Get-Date  # Reset timer if user chooses to wait
         }
     }
 }
 
 Write-Host "" # Final newline
-
-if (-not $isSynced) {
-    Write-Host ""
-    Write-Host "[WARNING] Kaspad may not be fully synced after $maxSyncWaitMinutes minutes." -ForegroundColor Yellow
-    Write-Host "You can check the status with: docker logs --tail=20 kaspad-$network" -ForegroundColor Cyan
-    Write-Host ""
-
-    $continue = Read-Host "Continue anyway? [y/N]"
-    if ($continue -ne "y") {
-        Write-Host "Exiting. Please wait for kaspad to sync or check for issues." -ForegroundColor Cyan
-        exit
-    }
-}
 
 Write-Host ""
 Write-Host "Starting transaction generator..." -ForegroundColor Green
