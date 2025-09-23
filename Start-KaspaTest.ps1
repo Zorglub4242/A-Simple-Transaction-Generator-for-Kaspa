@@ -1,6 +1,9 @@
+#Requires -Version 5.1
+
 # Kaspa Test Orchestrator - PowerShell Version
 # Zero prerequisites launcher - everything runs in Docker
 # Supports both TESTNET and MAINNET
+# Compatible with PowerShell 5.1 (default Windows version)
 
 # Check for Administrator privileges
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
@@ -362,7 +365,8 @@ if ($network -eq "mainnet") {
 
 Write-Host ""
 Write-Host "==================== STARTING TEST ENVIRONMENT ====================" -ForegroundColor Yellow
-Write-Host "Network: $($network.ToUpper())" -ForegroundColor $(if ($network -eq "mainnet") { "Red" } else { "Green" })
+$networkColor = if ($network -eq "mainnet") { "Red" } else { "Green" }
+Write-Host "Network: $($network.ToUpper())" -ForegroundColor $networkColor
 
 # Display the wallet address
 Write-Host ""
@@ -693,7 +697,8 @@ Write-Host ""
 Write-Host "Starting transaction generator..." -ForegroundColor Green
 Write-Host ""
 Write-Host "==================== TRANSACTION GENERATOR RUNNING ====================" -ForegroundColor Green
-Write-Host "Network: $($network.ToUpper())" -ForegroundColor $(if ($network -eq "mainnet") { "Red" } else { "Green" })
+$networkColor = if ($network -eq "mainnet") { "Red" } else { "Green" }
+Write-Host "Network: $($network.ToUpper())" -ForegroundColor $networkColor
 Write-Host "Target TPS: $tps" -ForegroundColor White
 Write-Host "Duration: $duration seconds (0=infinite)" -ForegroundColor White
 if ($network -eq "mainnet") {
