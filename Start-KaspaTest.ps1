@@ -472,7 +472,7 @@ services:
       - target-cache:/app/rusty-kaspa/target
     networks:
       - kaspa-net
-    command: bash -c "echo 'Waiting for build to complete...' && while [ ! -f /app/rusty-kaspa/target/release/Tx_gen ]; do sleep 2; done && echo 'Waiting for kaspad to be ready...' && for i in {1..60}; do if nc -zv kaspad $rpcPort 2>/dev/null; then echo 'Kaspad RPC port is open'; break; fi; echo 'Waiting for kaspad RPC port...'; sleep 2; done && echo 'Waiting for kaspad to sync (checking connectivity)...' && sleep 20 && echo 'Starting transaction generator...' && /app/rusty-kaspa/target/release/Tx_gen --network $networkName --target-tps $tps --duration $duration --rpc-endpoint grpc://kaspad:$rpcPort"
+    command: bash -c "echo 'Waiting for build to complete...' && while [ ! -f /app/rusty-kaspa/target/release/Tx_gen ]; do sleep 2; done && echo 'Installing netcat for connectivity check...' && apt-get update -qq && apt-get install -y -qq netcat-openbsd > /dev/null 2>&1 && echo 'Waiting for kaspad to be ready...' && for i in {1..60}; do if nc -zv kaspad-${network} ${rpcPort} 2>/dev/null; then echo 'Kaspad RPC port is open'; break; fi; echo 'Waiting for kaspad RPC port...'; sleep 2; done && echo 'Waiting for kaspad to sync (checking connectivity)...' && sleep 20 && echo 'Starting transaction generator...' && /app/rusty-kaspa/target/release/Tx_gen --network ${networkName} --target-tps ${tps} --duration ${duration} --rpc-endpoint grpc://kaspad-${network}:${rpcPort}"
 
 volumes:
   kaspad-$network-data:
@@ -489,12 +489,12 @@ $dockerCompose | Set-Content "docker-compose.yml"
 
 # Start services
 Write-Host "Starting Kaspad node ($network)..." -ForegroundColor Cyan
-docker-compose up -d kaspad
+$null = docker-compose up -d kaspad 2>&1
 
 Write-Host ""
 Write-Host "Building transaction generator (first time may take 5-10 minutes)..." -ForegroundColor Cyan
 Write-Host "This will run in parallel while kaspad syncs..." -ForegroundColor Gray
-docker-compose up -d tx-builder
+$null = docker-compose up -d tx-builder 2>&1
 
 Write-Host ""
 Write-Host "Waiting for build to complete (first build may take 10-20 minutes)..." -ForegroundColor Cyan
@@ -646,7 +646,7 @@ while (-not $isSynced) {
 
             $startKaspad = Read-Host "Try to start kaspad again? [y/N]"
             if ($startKaspad -eq "y") {
-                docker-compose up -d kaspad
+                $null = docker-compose up -d kaspad 2>&1
                 Write-Host "Restarted kaspad, waiting" -NoNewline -ForegroundColor Yellow
                 $lastActivityTime = Get-Date  # Reset activity timer
             } else {
@@ -708,8 +708,8 @@ Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host "========================================================================" -ForegroundColor Green
 Write-Host ""
 
-# Run the transaction generator
-docker-compose up tx-runner
+# Run the transaction generator (suppress Docker's Unicode output)
+docker-compose --ansi never up tx-runner
 
 Write-Host ""
 Write-Host "==================== TEST COMPLETED ====================" -ForegroundColor Green
@@ -738,7 +738,7 @@ function Show-Menu {
                     return
                 }
             }
-            docker-compose up tx-runner
+            docker-compose --ansi never up tx-runner
             Show-Menu
         }
         "2" {

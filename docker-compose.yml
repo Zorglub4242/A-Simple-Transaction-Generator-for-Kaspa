@@ -38,13 +38,13 @@ services:
       - kaspad
       - tx-builder
     environment:
-      - PRIVATE_KEY_HEX=98ad0846b17c43599593e735323983db4f47d05c736c4511b8e47c735e83e1fa
+      - PRIVATE_KEY_HEX=3fbf644704d3402a8ca79146c12f5705731a363d2a324d7c9a40680f3e68818c
     volumes:
       - .:/app
       - target-cache:/app/rusty-kaspa/target
     networks:
       - kaspa-net
-    command: bash -c "echo 'Waiting for build to complete...' && while [ ! -f /app/rusty-kaspa/target/release/Tx_gen ]; do sleep 2; done && echo 'Waiting for kaspad to be ready...' && for i in {1..60}; do if nc -zv kaspad 16210 2>/dev/null; then echo 'Kaspad RPC port is open'; break; fi; echo 'Waiting for kaspad RPC port...'; sleep 2; done && echo 'Waiting for kaspad to sync (checking connectivity)...' && sleep 20 && echo 'Starting transaction generator...' && /app/rusty-kaspa/target/release/Tx_gen --network testnet10 --target-tps 10 --duration 0 --rpc-endpoint grpc://kaspad:16210"
+    command: bash -c "echo 'Waiting for build to complete...' && while [ ! -f /app/rusty-kaspa/target/release/Tx_gen ]; do sleep 2; done && echo 'Installing netcat for connectivity check...' && apt-get update -qq && apt-get install -y -qq netcat-openbsd > /dev/null 2>&1 && echo 'Waiting for kaspad to be ready...' && for i in {1..60}; do if nc -zv kaspad-testnet 16210 2>/dev/null; then echo 'Kaspad RPC port is open'; break; fi; echo 'Waiting for kaspad RPC port...'; sleep 2; done && echo 'Waiting for kaspad to sync (checking connectivity)...' && sleep 20 && echo 'Starting transaction generator...' && /app/rusty-kaspa/target/release/Tx_gen --network testnet10 --target-tps 10 --duration 0 --rpc-endpoint grpc://kaspad-testnet:16210"
 
 volumes:
   kaspad-testnet-data:
