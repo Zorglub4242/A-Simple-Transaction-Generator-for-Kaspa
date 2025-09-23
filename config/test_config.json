@@ -1,0 +1,7 @@
+{
+    "duration":  0,
+    "tps":  10,
+    "utxos":  100,
+    "network":  "testnet",
+    "private_key":  "247e051953ee4b5580b541ff4fdba583b711fbad28ce4c58a883a0af0c8753a2"
+}

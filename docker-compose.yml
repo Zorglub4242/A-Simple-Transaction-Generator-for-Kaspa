@@ -1,0 +1,57 @@
+services:
+  kaspad:
+    image: supertypo/rusty-kaspad:latest
+    container_name: kaspad-testnet
+    command:
+      - kaspad
+      - --testnet
+      - --rpclisten=0.0.0.0:16210
+      - --utxoindex
+    ports:
+      - "16210:16210"
+      - "16211:16211"
+    volumes:
+      - kaspad-testnet-data:/app/data
+    networks:
+      - kaspa-net
+    restart: unless-stopped
+
+  tx-builder:
+    image: rust:latest
+    container_name: kaspa-tx-builder
+    working_dir: /app
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - target-cache:/app/rusty-kaspa/target
+    networks:
+      - kaspa-net
+    command: bash -c "apt-get update && apt-get install -y protobuf-compiler libprotobuf-dev && cd /app/rusty-kaspa && PROTOC=/usr/bin/protoc cargo build --release --bin Tx_gen && echo 'Build complete!' && sleep infinity"
+    restart: unless-stopped
+
+  tx-runner:
+    image: rust:latest
+    container_name: kaspa-tx-runner
+    working_dir: /app/rusty-kaspa
+    depends_on:
+      - kaspad
+      - tx-builder
+    environment:
+      - PRIVATE_KEY_HEX=247e051953ee4b5580b541ff4fdba583b711fbad28ce4c58a883a0af0c8753a2
+    volumes:
+      - .:/app
+      - target-cache:/app/rusty-kaspa/target
+    networks:
+      - kaspa-net
+    command: bash -c "echo 'Waiting for build to complete...' && while [ ! -f /app/rusty-kaspa/target/release/Tx_gen ]; do sleep 2; done && echo 'Waiting for kaspad to be ready...' && for i in {1..60}; do if nc -zv kaspad 16210 2>/dev/null; then echo 'Kaspad RPC port is open'; break; fi; echo 'Waiting for kaspad RPC port...'; sleep 2; done && echo 'Waiting for kaspad to sync (checking connectivity)...' && sleep 20 && echo 'Starting transaction generator...' && /app/rusty-kaspa/target/release/Tx_gen --network testnet10 --target-tps 10 --duration 0 --rpc-endpoint grpc://kaspad:16210"
+
+volumes:
+  kaspad-testnet-data:
+  cargo-cache:
+  cargo-git:
+  target-cache:
+
+networks:
+  kaspa-net:
+    driver: bridge
