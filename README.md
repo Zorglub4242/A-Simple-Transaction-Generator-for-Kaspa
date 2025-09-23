@@ -1,9 +1,10 @@
 # Kaspa Transaction Generator (Improved)
 
-A high-performance transaction generator for the Kaspa blockchain, designed for testing network throughput and stress testing. This improved version features modular architecture, secure configuration management, and comprehensive error handling.
+A high-performance transaction generator for the Kaspa blockchain, designed for testing network throughput and stress testing. This improved version features modular architecture, secure configuration management, comprehensive error handling, and a **zero-install Windows orchestrator**.
 
 ## Features
 
+- **Zero-Install Windows Orchestrator**: PowerShell script that handles everything automatically (Docker, Kaspad node, wallet setup)
 - **Secure Configuration**: No hardcoded private keys - uses environment variables, config files, or CLI arguments
 - **Modular Architecture**: Clean separation of concerns with dedicated modules
 - **Advanced Error Handling**: Comprehensive error types with detailed messages
@@ -11,8 +12,50 @@ A high-performance transaction generator for the Kaspa blockchain, designed for 
 - **Production-Ready Logging**: Structured logging with configurable levels
 - **High Performance**: Parallel transaction building with async submission
 - **Network Safety**: Built-in safety caps and network verification
+- **Docker Support**: Complete containerized environment for easy deployment
 
-## Quick Start
+## Quick Start - Windows (Zero Prerequisites)
+
+### Easiest Method - PowerShell Orchestrator
+
+The PowerShell orchestrator handles everything automatically - no manual setup required!
+
+**Requirements**: Only Docker Desktop (script will offer to install it if missing)
+
+1. **Clone the repository**
+```powershell
+git clone https://github.com/Zorglub4242/A-Simple-Transaction-Generator-for-Kaspa.git
+cd A-Simple-Transaction-Generator-for-Kaspa
+```
+
+2. **Run the orchestrator**
+```powershell
+.\Start-KaspaTest.ps1
+```
+
+The script will:
+- Check for Administrator rights (auto-elevate if needed)
+- Check if Docker is installed (offer to install if missing)
+- Check if Docker is running (start it if not)
+- Download and start a Kaspad node (testnet or mainnet)
+- Generate or import a wallet
+- Display your wallet address for funding
+- Configure test parameters interactively
+- Build everything in Docker containers
+- Monitor sync status with UTXO progress tracking
+- Start the transaction generator
+
+### Features of the PowerShell Orchestrator
+
+- **Supports both Testnet and Mainnet** with appropriate safety warnings
+- **Smart sync detection** - recognizes UTXO chunk syncing and won't timeout during active sync
+- **Parallel execution** - builds while kaspad syncs for efficiency
+- **Wallet management** - generates new wallets or imports existing ones
+- **Address display** - shows your Kaspa address for funding
+- **Configuration persistence** - saves settings for future runs
+- **Safety features** - multiple confirmations for mainnet operations
+
+## Quick Start - Manual Method
 
 ### Prerequisites
 
@@ -161,6 +204,34 @@ Create a testnet account on [K Social Network](https://ksocialnetwork.pages.dev/
 
 **Security Warning**: Never share or commit your private key!
 
+## Docker Usage
+
+The project includes a complete Docker environment for easy deployment without local dependencies.
+
+### Using Docker Compose
+
+1. **Configure your environment**
+```bash
+cp config/test_config.json.example config/test_config.json
+# Edit config/test_config.json with your private key
+```
+
+2. **Start the environment**
+```bash
+docker-compose up
+```
+
+This will:
+- Start a Kaspad node (testnet by default)
+- Build the transaction generator in a container
+- Run the transaction generator with your configuration
+
+### Docker Services
+
+- **kaspad**: Kaspa node (uses `supertypo/rusty-kaspad:latest`)
+- **tx-builder**: Builds the transaction generator from source
+- **tx-runner**: Runs the transaction generator
+
 ## Project Structure
 
 ```
@@ -172,6 +243,9 @@ Create a testnet account on [K Social Network](https://ksocialnetwork.pages.dev/
 │   ├── transaction.rs  # Transaction building and signing
 │   ├── utxo.rs        # UTXO management
 │   └── spam.rs        # Transaction spam loop
+├── Start-KaspaTest.ps1 # Windows orchestrator (zero-install)
+├── docker-compose.yml  # Docker environment
+├── config/            # Configuration files
 ├── .env.example       # Example environment variables
 ├── config.example.toml # Example configuration
 ├── setup.sh/ps1       # Setup scripts
@@ -269,5 +343,6 @@ For issues, questions, or suggestions:
 
 ---
 
-**Version**: 0.2.0
-**Last Updated**: 2024
+**Version**: 0.3.0
+**Last Updated**: September 2024
+**PowerShell Orchestrator Added**: September 2024
