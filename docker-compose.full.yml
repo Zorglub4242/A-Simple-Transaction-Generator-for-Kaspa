@@ -1,0 +1,137 @@
+# Complete docker-compose example with all parameters
+# This shows all available configuration options for the Kaspa transaction generator
+
+version: '3.8'
+
+services:
+  # Kaspad node (optional - you can use external node)
+  kaspad:
+    image: supertypo/rusty-kaspad:latest
+    container_name: kaspad-testnet
+    command:
+      - kaspad
+      - --testnet
+      - --rpclisten=0.0.0.0:16210
+      - --utxoindex
+    ports:
+      - "16210:16210"
+      - "16211:16211"
+    volumes:
+      - kaspad-data:/app/data
+    networks:
+      - kaspa-net
+    restart: unless-stopped
+
+  # Transaction generator with all parameters
+  tx-generator:
+    image: zorglub4242/kaspa-tx-generator:latest
+    container_name: kaspa-tx-generator
+    depends_on:
+      - kaspad
+    networks:
+      - kaspa-net
+    environment:
+      # ===== REQUIRED =====
+      PRIVATE_KEY_HEX: ${PRIVATE_KEY_HEX}  # Your private key (64 hex chars)
+
+      # ===== NETWORK CONFIGURATION =====
+      NETWORK: testnet10                    # Network: mainnet or testnet10
+      RPC_ENDPOINT: grpc://kaspad:16210    # Kaspad RPC endpoint (auto-detected if not set)
+
+      # ===== UTXO MANAGEMENT =====
+      TARGET_UTXO_COUNT: 100                # Target number of UTXOs to maintain
+      AMOUNT_PER_UTXO: 150000000           # Amount per UTXO in sompi (1.5 KAS)
+      OUTPUTS_PER_TRANSACTION: 20          # Outputs per splitting transaction
+      MIN_CHANGE_SOMPI: 10000              # Minimum change to keep (avoid dust)
+      UTXO_REFRESH_SECS: 30                # How often to refresh UTXO list
+
+      # ===== TRANSACTION GENERATION =====
+      TARGET_TPS: 10                        # Target transactions per second
+      DURATION: 0                           # Duration in seconds (0 = infinite)
+      UNLEASHED: false                      # Remove 100 TPS safety cap (use carefully!)
+      MILLIS_PER_TICK: 10                  # Pacing granularity in milliseconds
+
+      # ===== FEE CONFIGURATION =====
+      BASE_FEE_RATE: 1                     # Fee rate for spam transactions
+      SPLITTING_FEE_RATE: 10               # Fee rate for UTXO splitting
+
+      # ===== ADVANCED CONFIGURATION =====
+      CLIENT_POOL_SIZE: 16                 # Number of gRPC connections
+      MAX_PENDING_AGE_SECS: 60            # Max age for pending transactions
+      MAX_INFLIGHT: 50000                  # Maximum concurrent submissions
+      COINBASE_MATURITY: 100              # Blocks before coinbase is spendable
+      CONFIRMATION_DEPTH: 10               # Blocks for transaction confirmation
+
+      # ===== LOGGING =====
+      LOG_LEVEL: info                      # Log level: error, warn, info, debug, trace
+      LOG_COLORED: true                    # Use colored output
+      LOG_TIMESTAMPS: true                 # Include timestamps in logs
+
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # Alternative: High-performance configuration
+  tx-generator-unleashed:
+    image: zorglub4242/kaspa-tx-generator:latest
+    container_name: kaspa-tx-generator-unleashed
+    profiles: ["unleashed"]  # Only starts with --profile unleashed
+    depends_on:
+      - kaspad
+    networks:
+      - kaspa-net
+    environment:
+      PRIVATE_KEY_HEX: ${PRIVATE_KEY_HEX}
+      NETWORK: testnet10
+      RPC_ENDPOINT: grpc://kaspad:16210
+
+      # High-performance settings
+      TARGET_UTXO_COUNT: 500               # More UTXOs for higher throughput
+      AMOUNT_PER_UTXO: 200000000          # 2 KAS per UTXO
+      TARGET_TPS: 1000                     # Very high TPS
+      UNLEASHED: true                      # No safety cap
+      CLIENT_POOL_SIZE: 64                 # More connections
+      MILLIS_PER_TICK: 5                  # Finer control
+      MAX_INFLIGHT: 100000                 # More concurrent transactions
+
+  # Alternative: Mainnet configuration (BE CAREFUL!)
+  tx-generator-mainnet:
+    image: zorglub4242/kaspa-tx-generator:latest
+    container_name: kaspa-tx-generator-mainnet
+    profiles: ["mainnet"]  # Only starts with --profile mainnet
+    networks:
+      - kaspa-net
+    environment:
+      PRIVATE_KEY_HEX: ${MAINNET_PRIVATE_KEY_HEX}
+      NETWORK: mainnet
+      RPC_ENDPOINT: grpc://n-mainnet.kaspa.ws:16110
+
+      # Conservative mainnet settings
+      TARGET_UTXO_COUNT: 50
+      AMOUNT_PER_UTXO: 100000000          # 1 KAS per UTXO
+      TARGET_TPS: 5                        # Low TPS for safety
+      DURATION: 60                          # 1 minute test
+      UNLEASHED: false                      # Keep safety cap
+      BASE_FEE_RATE: 1                     # Standard fees
+      LOG_LEVEL: debug                     # More logging for mainnet
+
+volumes:
+  kaspad-data:
+
+networks:
+  kaspa-net:
+    driver: bridge
+
+# Usage:
+# 1. Copy this file as docker-compose.yml
+# 2. Create .env file with: PRIVATE_KEY_HEX=your_key_here
+# 3. Run: docker-compose up
+#
+# For unleashed profile: docker-compose --profile unleashed up
+# For mainnet profile: docker-compose --profile mainnet up

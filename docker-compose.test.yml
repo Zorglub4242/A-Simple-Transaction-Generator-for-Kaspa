@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  kaspad:
+    image: supertypo/rusty-kaspad:latest
+    ports:
+      - "16210:16210"
+    command: ["kaspad", "--testnet", "--rpclisten=0.0.0.0:16210", "--utxoindex"]
+
+  tx-generator:
+    image: zorglub4242/kaspa-tx-generator:latest
+    depends_on:
+      - kaspad
+    environment:
+      PRIVATE_KEY_HEX: ${PRIVATE_KEY_HEX}
+      TARGET_TPS: 10
+      TARGET_UTXO_COUNT: 100
+      RPC_ENDPOINT: grpc://kaspad:16210
+      DURATION: 30  # Test for 30 seconds
+      LOG_LEVEL: debug
